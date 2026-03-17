@@ -90,6 +90,11 @@ class PomoVision {
       this.setSessionMessage(
         "Camera/model init failed. Check permissions and internet.",
       );
+      if (this.cameraPlaceholderEl) {
+        this.cameraPlaceholderEl.style.display = "flex";
+        const textEl = document.getElementById("cameraPlaceholderText");
+        if (textEl) textEl.textContent = "Camera Unavailable";
+      }
     }
   }
 
@@ -101,6 +106,7 @@ class PomoVision {
     this.resetBtnEl = document.getElementById("resetBtn");
 
     this.videoEl = document.getElementById("webcam");
+    this.cameraPlaceholderEl = document.getElementById("cameraPlaceholder");
     this.canvasEl = document.getElementById("overlayCanvas");
     this.alertOverlayEl = document.getElementById("alertOverlay");
 
@@ -267,6 +273,10 @@ class PomoVision {
 
     this.videoEl.srcObject = this.mediaStream;
     await this.videoEl.play();
+
+    if (this.cameraPlaceholderEl) {
+      this.cameraPlaceholderEl.style.display = "none";
+    }
 
     // Load MediaPipe fileset + face landmarker
     const vision = await FilesetResolver.forVisionTasks("./vendor/mediapipe");
