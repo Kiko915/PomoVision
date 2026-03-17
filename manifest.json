@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "PomoVision",
+  "description": "AI Pomodoro focus tracker with MediaPipe gaze detection. Stay focused, get refocus alerts, and track progress.",
+  "version": "1.0.0",
+  "minimum_chrome_version": "114",
+  "action": {
+    "default_title": "PomoVision",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["storage", "notifications"],
+  "optional_permissions": ["camera"],
+  "host_permissions": ["<all_urls>"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+  }
+}

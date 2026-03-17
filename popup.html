@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>PomoVision</title>
+        <link rel="stylesheet" href="popup.css" />
+        <style>
+            /* Minimalist Enterprise Overrides */
+            :root {
+                --radius: 0px; /* Sharp edges */
+                --radius-sm: 0px;
+            }
+            .app-header {
+                flex-direction: row;
+                align-items: center;
+                gap: 10px;
+                padding-bottom: 8px;
+                border-bottom: 1px solid var(--border);
+                margin-bottom: 4px;
+            }
+            .logo-img {
+                width: 24px;
+                height: 24px;
+                object-fit: contain;
+            }
+            .header-text {
+                display: flex;
+                flex-direction: column;
+            }
+            .app-title {
+                font-size: 1rem;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+            .app-subtitle {
+                font-size: 0.65rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .timer-display {
+                font-size: 2.2rem;
+                margin: 5px 0;
+            }
+            .card {
+                padding: 10px;
+                gap: 8px;
+                display: flex;
+                flex-direction: column;
+                box-shadow: none;
+                background: var(--panel);
+            }
+            .btn {
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                font-size: 0.7rem;
+                padding: 6px 8px;
+            }
+        </style>
+    </head>
+    <body>
+        <main class="app" aria-live="polite">
+            <header class="app-header">
+                <img
+                    src="icons/icon128.png"
+                    alt="PomoVision Logo"
+                    class="logo-img"
+                />
+                <div class="header-text">
+                    <h1 class="app-title">PomoVision</h1>
+                    <p class="app-subtitle">Focus Tracker</p>
+                </div>
+            </header>
+
+            <section class="card" aria-label="Pomodoro timer">
+                <div
+                    id="timerDisplay"
+                    class="timer-display"
+                    role="timer"
+                    aria-atomic="true"
+                >
+                    25:00
+                </div>
+
+                <div class="progress-track" aria-hidden="true">
+                    <div
+                        id="progressBar"
+                        class="progress-fill"
+                        style="width: 0%"
+                    ></div>
+                </div>
+
+                <div class="controls">
+                    <button id="startBtn" class="btn btn-primary" type="button">
+                        Start
+                    </button>
+                    <button
+                        id="pauseBtn"
+                        class="btn btn-secondary"
+                        type="button"
+                        disabled
+                    >
+                        Pause
+                    </button>
+                    <button id="resetBtn" class="btn btn-danger" type="button">
+                        Reset
+                    </button>
+                </div>
+            </section>
+
+            <section class="card" aria-label="Webcam and gaze tracking">
+                <div
+                    class="vision-stage"
+                    role="region"
+                    aria-label="Live webcam feed"
+                >
+                    <video
+                        id="webcam"
+                        width="320"
+                        height="240"
+                        autoplay
+                        muted
+                        playsinline
+                    ></video>
+
+                    <canvas
+                        id="overlayCanvas"
+                        width="320"
+                        height="240"
+                        aria-hidden="true"
+                    ></canvas>
+
+                    <div
+                        id="alertOverlay"
+                        class="alert-overlay"
+                        hidden
+                        aria-live="assertive"
+                        aria-atomic="true"
+                    >
+                        <h2 class="alert-title">REFOCUS</h2>
+                        <p class="alert-subtitle">
+                            Distraction Threshold Reached
+                        </p>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <span id="trackingStatus" class="status-pill ok"
+                        >System: Ready</span
+                    >
+                    <span id="gazeStatus" class="status-pill"
+                        >Gaze: Standby</span
+                    >
+                </div>
+            </section>
+
+            <section class="card" aria-label="Focus statistics">
+                <div class="stats">
+                    <article class="stat-box">
+                        <span class="stat-label">Focus Ratio</span>
+                        <span id="focusPercent" class="stat-value">0%</span>
+                    </article>
+                    <article class="stat-box">
+                        <span class="stat-label">Cycles Completed</span>
+                        <span id="sessionCount" class="stat-value">0</span>
+                    </article>
+                </div>
+
+                <p id="sessionMessage" class="message">
+                    Awaiting initialization...
+                </p>
+            </section>
+
+            <footer
+                style="
+                    margin-top: 8px;
+                    text-align: center;
+                    color: var(--text-muted);
+                    font-size: 0.7rem;
+                    padding: 4px;
+                    border-top: 1px solid var(--border);
+                "
+            >
+                <p style="margin: 0; line-height: 1.4">
+                    Inspired by the <strong>Learning How to Learn</strong> (LHL)
+                    course by Dr. Barbara Oakley.
+                </p>
+            </footer>
+        </main>
+
+        <script type="module" src="popup.js"></script>
+    </body>
+</html>
