@@ -93,8 +93,20 @@ class PomoVision {
       );
       if (this.cameraPlaceholderEl) {
         this.cameraPlaceholderEl.style.display = "flex";
+        this.cameraPlaceholderEl.style.cursor = "pointer";
+        this.cameraPlaceholderEl.title =
+          "Click to open in a new tab and allow camera access";
+        this.cameraPlaceholderEl.onclick = () => {
+          // Chrome extensions sometimes block getUserMedia in popups.
+          // The reliable fix is to open the extension in a full tab to request permission.
+          chrome.tabs.create({ url: chrome.runtime.getURL("popup.html") });
+        };
+
         const textEl = document.getElementById("cameraPlaceholderText");
-        if (textEl) textEl.textContent = "Camera Unavailable";
+        if (textEl) {
+          textEl.innerHTML = `Camera Unavailable<br><span style="font-size:0.65rem;font-weight:normal;color:var(--danger)">Error: ${err.message || err.name || "Permission denied"}</span><br><span style="font-size:0.75rem;font-weight:600;margin-top:6px;display:block;color:var(--accent)">Click to open in a new tab<br>to allow permissions</span>`;
+          textEl.style.textAlign = "center";
+        }
       }
     }
   }

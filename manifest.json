@@ -13,7 +13,6 @@
     "type": "module"
   },
   "permissions": ["storage", "notifications"],
-  "optional_permissions": ["camera"],
   "host_permissions": ["<all_urls>"],
   "icons": {
     "16": "icons/icon16.png",
