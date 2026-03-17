@@ -3,8 +3,8 @@
     --panel: #ffffff;
     --text: #1a1a1a;
     --text-muted: #6e7278;
-    --accent: #0066cc;
-    --accent-hover: #0052a3;
+    --accent: #ff473e;
+    --accent-hover: #e03a32;
     --danger: #d93025;
     --success: #1e8e3e;
     --border: #e6e8eb;
@@ -119,10 +119,45 @@ body {
 }
 
 /* Timer */
+.timer-container {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.progress-ring {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: rotate(-90deg);
+}
+
+.progress-ring-track {
+    fill: transparent;
+    stroke: #f0f2f5;
+    stroke-width: 8;
+}
+
+.progress-ring-fill {
+    fill: transparent;
+    stroke: var(--accent);
+    stroke-width: 8;
+    stroke-dasharray: 439.8; /* 2 * pi * 70 */
+    stroke-dashoffset: 0;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s linear;
+}
+
 .timer-display {
+    position: relative;
+    z-index: 1;
     margin: 0;
-    font-size: 2.75rem;
-    font-weight: 600;
+    font-size: 2.25rem;
+    font-weight: 700;
     line-height: 1;
     text-align: center;
     font-family:
@@ -130,22 +165,6 @@ body {
         sans-serif;
     letter-spacing: 1px;
     color: var(--text);
-}
-
-.progress-track {
-    width: 100%;
-    height: 6px;
-    background-color: #f0f2f5;
-    border-radius: 999px;
-    overflow: hidden;
-}
-
-.progress-fill {
-    width: 0%;
-    height: 100%;
-    background-color: var(--accent);
-    transition: width 0.2s linear;
-    border-radius: 999px;
 }
 
 /* Controls */
@@ -179,14 +198,14 @@ body {
 }
 
 .btn-primary {
-    background: linear-gradient(180deg, #0076eb 0%, var(--accent) 100%);
-    border-color: #0056b3;
+    background: linear-gradient(180deg, #ff6b63 0%, var(--accent) 100%);
+    border-color: #cc2922;
     color: #fff;
 }
 
 .btn-primary:hover:not(:disabled) {
-    background: linear-gradient(180deg, #006ce6 0%, var(--accent-hover) 100%);
-    border-color: #004085;
+    background: linear-gradient(180deg, #ff574d 0%, var(--accent-hover) 100%);
+    border-color: #a61a15;
 }
 
 .btn-danger {

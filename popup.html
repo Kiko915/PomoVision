@@ -74,20 +74,32 @@
 
             <section class="card" aria-label="Pomodoro timer">
                 <div
-                    id="timerDisplay"
-                    class="timer-display"
-                    role="timer"
-                    aria-atomic="true"
+                    class="timer-container"
+                    aria-label="Circular Progress Timer"
                 >
-                    25:00
-                </div>
-
-                <div class="progress-track" aria-hidden="true">
+                    <svg class="progress-ring" width="160" height="160">
+                        <circle
+                            class="progress-ring-track"
+                            cx="80"
+                            cy="80"
+                            r="70"
+                        ></circle>
+                        <circle
+                            id="progressRing"
+                            class="progress-ring-fill"
+                            cx="80"
+                            cy="80"
+                            r="70"
+                        ></circle>
+                    </svg>
                     <div
-                        id="progressBar"
-                        class="progress-fill"
-                        style="width: 0%"
-                    ></div>
+                        id="timerDisplay"
+                        class="timer-display"
+                        role="timer"
+                        aria-atomic="true"
+                    >
+                        25:00
+                    </div>
                 </div>
 
                 <div class="controls">

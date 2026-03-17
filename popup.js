@@ -61,7 +61,7 @@ class PomoVision {
 
     // ---- UI Elements ----
     this.timerDisplayEl = null;
-    this.progressBarEl = null;
+    this.progressRingEl = null;
     this.startBtnEl = null;
     this.pauseBtnEl = null;
     this.resetBtnEl = null;
@@ -113,7 +113,7 @@ class PomoVision {
 
   cacheElements() {
     this.timerDisplayEl = document.getElementById("timerDisplay");
-    this.progressBarEl = document.getElementById("progressBar");
+    this.progressRingEl = document.getElementById("progressRing");
     this.startBtnEl = document.getElementById("startBtn");
     this.pauseBtnEl = document.getElementById("pauseBtn");
     this.resetBtnEl = document.getElementById("resetBtn");
@@ -256,13 +256,16 @@ class PomoVision {
   }
 
   updateProgressBar() {
-    if (!this.progressBarEl) return;
+    if (!this.progressRingEl) return;
     const elapsed = this.SESSION_DURATION_SECONDS - this.remainingSeconds;
     const progress = Math.max(
       0,
-      Math.min(100, (elapsed / this.SESSION_DURATION_SECONDS) * 100),
+      Math.min(1, elapsed / this.SESSION_DURATION_SECONDS),
     );
-    this.progressBarEl.style.width = `${progress}%`;
+    // 2 * pi * r (where r=70)
+    const circumference = 439.8;
+    const offset = circumference - progress * circumference;
+    this.progressRingEl.style.strokeDashoffset = offset;
   }
 
   // -------------------------------
