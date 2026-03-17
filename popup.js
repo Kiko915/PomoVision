@@ -83,10 +83,11 @@ class PomoVision {
     try {
       await this.initializeVision();
       this.setSessionMessage("Camera active. Ready to start.");
+      this.setTrackingStatus("Camera: ready", "ok");
     } catch (err) {
       console.error("[PomoVision] Vision init error:", err);
-      this.setTrackingStatus("Camera unavailable");
-      this.setGazeStatus("Gaze: unavailable");
+      this.setTrackingStatus("Camera unavailable", "danger");
+      this.setGazeStatus("Gaze: unavailable", "danger");
       this.setSessionMessage(
         "Camera/model init failed. Check permissions and internet.",
       );
@@ -257,8 +258,8 @@ class PomoVision {
   // -------------------------------
 
   async initializeVision() {
-    this.setTrackingStatus("Requesting camera...");
-    this.setGazeStatus("Gaze: initializing");
+    this.setTrackingStatus("Requesting camera...", "warn");
+    this.setGazeStatus("Gaze: initializing", "warn");
 
     // Request webcam stream
     this.mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -291,8 +292,8 @@ class PomoVision {
       outputFacialTransformationMatrixes: false,
     });
 
-    this.setTrackingStatus("Camera: ready");
-    this.setGazeStatus("Gaze: waiting for face");
+    this.setTrackingStatus("Camera: ready", "ok");
+    this.setGazeStatus("Gaze: waiting for face", "warn");
 
     this.startVisionLoop();
   }
@@ -331,7 +332,7 @@ class PomoVision {
     );
 
     if (!result || !result.faceLandmarks || result.faceLandmarks.length === 0) {
-      this.setGazeStatus("Gaze: no face");
+      this.setGazeStatus("Gaze: no face", "danger");
       this.drawStatusHint("No face", "#ffb703");
 
       if (this.isRunning) {
@@ -369,6 +370,7 @@ class PomoVision {
 
     this.setGazeStatus(
       `Gaze: ${lookingAway ? "away" : "focused"} (x=${avgX.toFixed(2)})`,
+      lookingAway ? "danger" : "ok",
     );
 
     if (this.isRunning) {
@@ -571,12 +573,18 @@ class PomoVision {
   // UI Helpers
   // -------------------------------
 
-  setTrackingStatus(text) {
-    if (this.trackingStatusEl) this.trackingStatusEl.textContent = text;
+  setTrackingStatus(text, statusType = "ok") {
+    if (this.trackingStatusEl) {
+      this.trackingStatusEl.textContent = text;
+      this.trackingStatusEl.className = `status-pill ${statusType}`;
+    }
   }
 
-  setGazeStatus(text) {
-    if (this.gazeStatusEl) this.gazeStatusEl.textContent = text;
+  setGazeStatus(text, statusType = "") {
+    if (this.gazeStatusEl) {
+      this.gazeStatusEl.textContent = text;
+      this.gazeStatusEl.className = `status-pill ${statusType}`;
+    }
   }
 
   setSessionMessage(text) {
