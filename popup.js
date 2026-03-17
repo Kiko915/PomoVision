@@ -30,6 +30,7 @@ class PomoVision {
     this.sessionCompleted = false;
     this.timerIntervalId = null;
     this.isCameraReady = false;
+    this.lastTickTime = null;
 
     // ---- Vision/Gaze State ----
     this.videoEl = null;
@@ -77,6 +78,10 @@ class PomoVision {
   async init() {
     this.cacheElements();
     this.bindEvents();
+
+    // Load persisted state before rendering
+    await this.loadState();
+
     this.renderTimer();
     this.updateProgressBar();
     await this.loadAndRenderStats();
@@ -150,8 +155,58 @@ class PomoVision {
 
     // Clean up camera/raf when popup closes.
     window.addEventListener("beforeunload", () => {
+      this.saveState();
       this.cleanup();
     });
+  }
+
+  // -------------------------------
+  // State Persistence
+  // -------------------------------
+
+  async loadState() {
+    const data = await chrome.storage.local.get(["pomoState"]);
+    if (data.pomoState) {
+      const state = data.pomoState;
+      this.remainingSeconds = state.remainingSeconds;
+      this.isRunning = state.isRunning;
+      this.sessionCompleted = state.sessionCompleted;
+      this.sessionFocusSeconds = state.sessionFocusSeconds;
+      this.sessionDistractedSeconds = state.sessionDistractedSeconds;
+
+      if (this.isRunning) {
+        // Calculate elapsed time since popup closed
+        if (state.lastTickTime) {
+          const now = Date.now();
+          const elapsed = Math.floor((now - state.lastTickTime) / 1000);
+          this.remainingSeconds = Math.max(0, this.remainingSeconds - elapsed);
+
+          if (this.remainingSeconds === 0 && !this.sessionCompleted) {
+            this.completeSession();
+            return;
+          }
+        }
+
+        // Visually update buttons
+        this.startBtnEl.disabled = true;
+        this.pauseBtnEl.disabled = false;
+
+        // Start the interval loop without resetting variables
+        this.resumeInterval();
+      }
+    }
+  }
+
+  saveState() {
+    const state = {
+      remainingSeconds: this.remainingSeconds,
+      isRunning: this.isRunning,
+      sessionCompleted: this.sessionCompleted,
+      sessionFocusSeconds: this.sessionFocusSeconds,
+      sessionDistractedSeconds: this.sessionDistractedSeconds,
+      lastTickTime: Date.now(),
+    };
+    chrome.storage.local.set({ pomoState: state });
   }
 
   // -------------------------------
@@ -172,19 +227,36 @@ class PomoVision {
     this.pauseBtnEl.disabled = false;
     this.setSessionMessage("Focus session running...");
 
-    this.timerIntervalId = window.setInterval(() => {
-      this.remainingSeconds -= 1;
+    this.resumeInterval();
+  }
 
-      if (this.remainingSeconds <= 0) {
-        this.remainingSeconds = 0;
+  resumeInterval() {
+    if (this.timerIntervalId) return;
+
+    this.lastTickTime = Date.now();
+    this.timerIntervalId = window.setInterval(() => {
+      const now = Date.now();
+      // Calculate delta to handle slight interval drifts
+      const delta = Math.floor((now - this.lastTickTime) / 1000);
+
+      if (delta >= 1) {
+        this.remainingSeconds -= delta;
+        this.lastTickTime = now;
+
+        // Continually save state so we don't lose much if crash
+        this.saveState();
+
+        if (this.remainingSeconds <= 0) {
+          this.remainingSeconds = 0;
+          this.renderTimer();
+          this.updateProgressBar();
+          this.completeSession();
+          return;
+        }
+
         this.renderTimer();
         this.updateProgressBar();
-        this.completeSession();
-        return;
       }
-
-      this.renderTimer();
-      this.updateProgressBar();
     }, 1000);
   }
 
@@ -198,6 +270,7 @@ class PomoVision {
     this.pauseBtnEl.disabled = true;
     this.setSessionMessage("Session paused.");
     this.deactivateAlert();
+    this.saveState();
   }
 
   resetSession() {
@@ -221,6 +294,7 @@ class PomoVision {
     this.pauseBtnEl.disabled = true;
     this.setGazeStatus("Gaze: unknown");
     this.setSessionMessage("Session reset. Ready to focus.");
+    this.saveState();
   }
 
   clearTimerInterval() {
@@ -247,6 +321,7 @@ class PomoVision {
       "Great work. Time for a diffuse break.",
     );
     this.playBeepPattern("complete");
+    this.saveState();
   }
 
   renderTimer() {
