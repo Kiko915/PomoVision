@@ -11,13 +11,42 @@ const DEFAULT_STATS = {
   focusPercent: 0,
   sessionCount: 0,
   totalFocusSeconds: 0,
-  totalDistractedSeconds: 0
+  totalDistractedSeconds: 0,
 };
 
 /**
  * Merge defaults with any existing data.
  * This ensures future installs/upgrades always have required keys.
  */
+let creating = null; // A global promise to avoid concurrency issues
+
+async function setupOffscreenDocument(path) {
+  // Check all windows controlled by the service worker to see if one
+  // of them is the offscreen document with the given path
+  const offscreenUrl = chrome.runtime.getURL(path);
+  const existingContexts = await chrome.runtime.getContexts({
+    contextTypes: ["OFFSCREEN_DOCUMENT"],
+    documentUrls: [offscreenUrl],
+  });
+
+  if (existingContexts.length > 0) {
+    return;
+  }
+
+  // create offscreen document
+  if (creating) {
+    await creating;
+  } else {
+    creating = chrome.offscreen.createDocument({
+      url: path,
+      reasons: ["USER_MEDIA", "WEB_RTC"],
+      justification: "Keep camera tracking running when popup is closed",
+    });
+    await creating;
+    creating = null;
+  }
+}
+
 async function ensureDefaultStats() {
   try {
     const existing = await chrome.storage.sync.get(DEFAULT_STATS);
@@ -33,13 +62,15 @@ async function ensureDefaultStats() {
  * Create a browser notification safely.
  */
 function createNotification(payload = {}) {
-  const title = typeof payload.title === "string" && payload.title.trim()
-    ? payload.title.trim()
-    : "PomoVision";
+  const title =
+    typeof payload.title === "string" && payload.title.trim()
+      ? payload.title.trim()
+      : "PomoVision";
 
-  const message = typeof payload.message === "string" && payload.message.trim()
-    ? payload.message.trim()
-    : "Stay focused.";
+  const message =
+    typeof payload.message === "string" && payload.message.trim()
+      ? payload.message.trim()
+      : "Stay focused.";
 
   chrome.notifications.create(
     {
@@ -47,15 +78,18 @@ function createNotification(payload = {}) {
       iconUrl: "icons/icon128.png",
       title,
       message,
-      priority: 2
+      priority: 2,
     },
     (notificationId) => {
       if (chrome.runtime.lastError) {
-        console.error("[PomoVision] Notification error:", chrome.runtime.lastError.message);
+        console.error(
+          "[PomoVision] Notification error:",
+          chrome.runtime.lastError.message,
+        );
         return;
       }
       console.log("[PomoVision] Notification created:", notificationId);
-    }
+    },
   );
 }
 
@@ -71,9 +105,16 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === "install") {
     createNotification({
       title: "PomoVision Installed",
-      message: "Ready to focus. Open the popup to start your first session."
+      message: "Ready to focus. Open the popup to start your first session.",
     });
   }
+  // Launch the offscreen tracking page when installed
+  await setupOffscreenDocument("tracking.html");
+});
+
+chrome.runtime.onStartup.addListener(async () => {
+  // Launch the offscreen tracking page when browser starts
+  await setupOffscreenDocument("tracking.html");
 });
 
 /**
@@ -101,7 +142,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       sendResponse?.({
         ok: true,
         serviceWorker: "active",
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
       return false;
     }
@@ -119,6 +160,3 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 /**
  * Optional cleanup / observability hooks.
  */
-chrome.runtime.onStartup?.addListener(() => {
-  console.log("[PomoVision] Browser startup detected, worker available.");
-});

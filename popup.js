@@ -86,6 +86,17 @@ class PomoVision {
     this.updateProgressBar();
     await this.loadAndRenderStats();
 
+    // Sync stats directly from tracking script via storage
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === "local" && changes.pomoState) {
+        const newVal = changes.pomoState.newValue;
+        if (newVal && this.isRunning) {
+          this.sessionFocusSeconds = newVal.sessionFocusSeconds;
+          this.sessionDistractedSeconds = newVal.sessionDistractedSeconds;
+        }
+      }
+    });
+
     try {
       await this.initializeVision();
       this.setSessionMessage("Camera active. Ready to start.");
@@ -217,11 +228,6 @@ class PomoVision {
     if (this.sessionCompleted) return;
     if (this.isRunning) return;
 
-    if (!this.mediaStream || !this.faceLandmarker) {
-      this.setSessionMessage("Waiting for camera/model to initialize...");
-      return;
-    }
-
     this.isRunning = true;
     this.startBtnEl.disabled = true;
     this.pauseBtnEl.disabled = false;
@@ -269,7 +275,6 @@ class PomoVision {
     this.startBtnEl.disabled = !this.isCameraReady;
     this.pauseBtnEl.disabled = true;
     this.setSessionMessage("Session paused.");
-    this.deactivateAlert();
     this.saveState();
   }
 
@@ -283,10 +288,7 @@ class PomoVision {
     // Reset current session metrics only (do not clear aggregate stats)
     this.sessionFocusSeconds = 0;
     this.sessionDistractedSeconds = 0;
-    this.currentDistractedStreak = 0;
-    this.wasFocusedLastFrame = false;
 
-    this.deactivateAlert();
     this.renderTimer();
     this.updateProgressBar();
 
