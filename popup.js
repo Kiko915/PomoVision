@@ -26,9 +26,10 @@ class PomoVision {
 
     // ---- Runtime Timer State ----
     this.remainingSeconds = this.SESSION_DURATION_SECONDS;
-    this.timerIntervalId = null;
     this.isRunning = false;
     this.sessionCompleted = false;
+    this.timerIntervalId = null;
+    this.isCameraReady = false;
 
     // ---- Vision/Gaze State ----
     this.videoEl = null;
@@ -193,7 +194,7 @@ class PomoVision {
     this.isRunning = false;
     this.clearTimerInterval();
 
-    this.startBtnEl.disabled = false;
+    this.startBtnEl.disabled = !this.isCameraReady;
     this.pauseBtnEl.disabled = true;
     this.setSessionMessage("Session paused.");
     this.deactivateAlert();
@@ -216,7 +217,7 @@ class PomoVision {
     this.renderTimer();
     this.updateProgressBar();
 
-    this.startBtnEl.disabled = false;
+    this.startBtnEl.disabled = !this.isCameraReady;
     this.pauseBtnEl.disabled = true;
     this.setGazeStatus("Gaze: unknown");
     this.setSessionMessage("Session reset. Ready to focus.");
@@ -309,6 +310,10 @@ class PomoVision {
 
     this.setTrackingStatus("Camera: ready", "ok");
     this.setGazeStatus("Gaze: waiting for face", "warn");
+
+    this.isCameraReady = true;
+    this.startBtnEl.disabled = false;
+    this.resetBtnEl.disabled = false;
 
     this.startVisionLoop();
   }
