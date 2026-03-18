@@ -472,12 +472,14 @@ class PomoVision {
       return;
     }
 
-    const avgX = (leftIris.x + rightIris.x) / 2;
+    // Mirror avgX to match flipped video — gaze logic stays the same
+    const rawAvgX = (leftIris.x + rightIris.x) / 2;
+    const avgX = 1 - rawAvgX;
     const lookingAway = avgX < 0.25 || avgX > 0.75;
 
-    // Draw iris points
-    this.drawPoint(leftIris.x * width, leftIris.y * height, "#00d4ff");
-    this.drawPoint(rightIris.x * width, rightIris.y * height, "#00d4ff");
+    // Draw iris points — mirror x to match the CSS scaleX(-1) flipped video
+    this.drawPoint((1 - leftIris.x) * width, leftIris.y * height, "#00d4ff");
+    this.drawPoint((1 - rightIris.x) * width, rightIris.y * height, "#00d4ff");
 
     // Draw safe-zone guide lines
     this.drawGuideLines(width, height);
