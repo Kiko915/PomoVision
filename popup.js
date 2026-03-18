@@ -19,10 +19,11 @@
  *   <script type="module" src="popup.js"></script>
  */
 
-// Import MediaPipe Face Landmarker
+// Import MediaPipe Face Landmarker + Object Detector
 import {
   FilesetResolver,
   FaceLandmarker,
+  ObjectDetector,
 } from "./vendor/mediapipe/vision_bundle.mjs";
 
 class PomoVision {
@@ -49,9 +50,16 @@ class PomoVision {
 
     this.mediaStream = null;
     this.faceLandmarker = null;
+    this.objectDetector = null;
     this.animationFrameId = null;
     this.lastInferenceTime = 0;
     this.INFERENCE_INTERVAL_MS = 33; // ~30fps
+
+    // Phone detection runs less frequently to save performance
+    this.lastPhoneCheckTime = 0;
+    this.PHONE_CHECK_INTERVAL_MS = 800; // check every ~800ms
+    this.phoneDetected = false;
+    this.phoneAlertActive = false;
 
     this.currentDistractedStreak = 0;
     this.alertActive = false;
@@ -100,6 +108,16 @@ class PomoVision {
         if (newVal && this.isRunning) {
           this.sessionFocusSeconds = newVal.sessionFocusSeconds;
           this.sessionDistractedSeconds = newVal.sessionDistractedSeconds;
+        }
+        // Reflect phone alert from background tracking into popup UI
+        if (newVal && newVal.phoneAlert === true && !this.phoneAlertActive) {
+          this.activatePhoneAlert();
+        } else if (
+          newVal &&
+          newVal.phoneAlert === false &&
+          this.phoneAlertActive
+        ) {
+          this.deactivatePhoneAlert();
         }
       }
     });
@@ -402,6 +420,16 @@ class PomoVision {
       outputFacialTransformationMatrixes: false,
     });
 
+    // Load object detector for phone detection
+    this.objectDetector = await ObjectDetector.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: "./vendor/mediapipe/efficientdet_lite0.tflite",
+      },
+      runningMode: "VIDEO",
+      scoreThreshold: 0.5,
+      categoryAllowlist: ["cell phone"],
+    });
+
     this.setTrackingStatus("Camera: ready", "ok");
     this.setGazeStatus("Gaze: waiting for face", "warn");
 
@@ -415,10 +443,15 @@ class PomoVision {
   startVisionLoop() {
     const tick = (ts) => {
       try {
-        // ~30fps inference throttle
+        // ~30fps face inference throttle
         if (ts - this.lastInferenceTime >= this.INFERENCE_INTERVAL_MS) {
           this.lastInferenceTime = ts;
           this.processFrame();
+        }
+        // ~1fps phone detection throttle
+        if (ts - this.lastPhoneCheckTime >= this.PHONE_CHECK_INTERVAL_MS) {
+          this.lastPhoneCheckTime = ts;
+          this.processPhoneDetection(ts);
         }
       } catch (err) {
         console.error("[PomoVision] processFrame error:", err);
@@ -537,6 +570,72 @@ class PomoVision {
     this.ctx.moveTo(right, 0);
     this.ctx.lineTo(right, height);
     this.ctx.stroke();
+  }
+
+  processPhoneDetection(ts) {
+    if (!this.objectDetector || !this.videoEl || this.videoEl.readyState < 2)
+      return;
+
+    const result = this.objectDetector.detectForVideo(this.videoEl, ts);
+    if (!result || !result.detections) return;
+
+    const phoneFound = result.detections.some((d) =>
+      d.categories.some(
+        (c) => c.categoryName === "cell phone" && c.score >= 0.5,
+      ),
+    );
+
+    if (phoneFound && !this.phoneAlertActive) {
+      this.phoneAlertActive = true;
+      this.activatePhoneAlert(result.detections);
+    } else if (!phoneFound && this.phoneAlertActive) {
+      this.phoneAlertActive = false;
+      this.deactivatePhoneAlert();
+    }
+
+    // Draw bounding boxes for detected phones
+    if (phoneFound && result.detections.length > 0) {
+      for (const det of result.detections) {
+        const box = det.boundingBox;
+        const w = this.canvasEl.width;
+        const h = this.canvasEl.height;
+        // Mirror x to match flipped video
+        const mirroredX = w - (box.originX + box.width);
+        this.ctx.strokeStyle = "#ff473e";
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(mirroredX, box.originY, box.width, box.height);
+        this.ctx.fillStyle = "rgba(255,71,62,0.15)";
+        this.ctx.fillRect(mirroredX, box.originY, box.width, box.height);
+        this.ctx.font = "bold 11px sans-serif";
+        this.ctx.fillStyle = "#ff473e";
+        this.ctx.fillText("📵 Phone", mirroredX + 4, box.originY + 14);
+      }
+    }
+  }
+
+  activatePhoneAlert() {
+    if (this.alertOverlayEl) {
+      this.alertOverlayEl.hidden = false;
+      // Override default text to phone-specific message
+      const title = this.alertOverlayEl.querySelector(".alert-title");
+      const subtitle = this.alertOverlayEl.querySelector(".alert-subtitle");
+      if (title) title.textContent = "PUT PHONE DOWN";
+      if (subtitle) subtitle.textContent = "Phone detected — stay focused!";
+    }
+    this.sendNotification(
+      "📵 Phone Detected!",
+      "Put your phone down and refocus on your work.",
+    );
+    this.playBeepPattern("alert");
+    this.setSessionMessage("📵 Phone detected — put it down!");
+  }
+
+  deactivatePhoneAlert() {
+    // Only close the overlay if the gaze alert is also not active
+    if (!this.alertActive && this.alertOverlayEl) {
+      this.alertOverlayEl.hidden = true;
+    }
+    this.setSessionMessage("Focus session running...");
   }
 
   drawStatusHint(text, color = "#ffffff") {

@@ -1,6 +1,7 @@
 import {
   FilesetResolver,
   FaceLandmarker,
+  ObjectDetector,
 } from "./vendor/mediapipe/vision_bundle.mjs";
 
 class PomoTracking {
@@ -10,6 +11,7 @@ class PomoTracking {
     this.ctx = this.canvasEl.getContext("2d");
 
     this.faceLandmarker = null;
+    this.objectDetector = null;
     this.mediaStream = null;
     this.lastVideoTime = -1;
     this.lastFrameTime = performance.now();
@@ -22,6 +24,11 @@ class PomoTracking {
       sessionFocusSeconds: 0,
       sessionDistractedSeconds: 0,
     };
+
+    // Phone detection state
+    this.lastPhoneCheckTime = 0;
+    this.PHONE_CHECK_INTERVAL_MS = 800;
+    this.phoneAlertActive = false;
 
     this.audioCtx = null;
     this.alertActive = false;
@@ -78,6 +85,7 @@ class PomoTracking {
   async initializeVision() {
     try {
       const vision = await FilesetResolver.forVisionTasks("./vendor/mediapipe");
+
       this.faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
         baseOptions: {
           modelAssetPath: "./vendor/mediapipe/face_landmarker.task",
@@ -87,16 +95,35 @@ class PomoTracking {
         outputFaceBlendshapes: false,
         outputFacialTransformationMatrixes: false,
       });
-      console.log("[Tracking] Vision model loaded.");
+
+      this.objectDetector = await ObjectDetector.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: "./vendor/mediapipe/efficientdet_lite0.tflite",
+        },
+        runningMode: "VIDEO",
+        scoreThreshold: 0.5,
+        categoryAllowlist: ["cell phone"],
+      });
+
+      console.log("[Tracking] Vision models loaded (face + object detector).");
     } catch (err) {
       console.error("[Tracking] Model load failed:", err);
     }
   }
 
   startVisionLoop() {
-    const tick = () => {
+    const tick = (ts) => {
       if (!this.videoEl.paused && this.faceLandmarker) {
         this.processFrame();
+      }
+      // Phone detection at lower frequency
+      if (
+        this.objectDetector &&
+        !this.videoEl.paused &&
+        ts - this.lastPhoneCheckTime >= this.PHONE_CHECK_INTERVAL_MS
+      ) {
+        this.lastPhoneCheckTime = ts;
+        this.processPhoneDetection(ts);
       }
       requestAnimationFrame(tick);
     };
@@ -113,7 +140,7 @@ class PomoTracking {
 
       const result = this.faceLandmarker.detectForVideo(
         this.videoEl,
-        startTimeMs
+        startTimeMs,
       );
 
       this.ctx.clearRect(0, 0, this.canvasEl.width, this.canvasEl.height);
@@ -132,7 +159,7 @@ class PomoTracking {
             pt.y * this.canvasEl.height,
             1,
             0,
-            2 * Math.PI
+            2 * Math.PI,
           );
           this.ctx.fill();
         }
@@ -148,6 +175,72 @@ class PomoTracking {
       if (this.pomoState.isRunning) {
         this.updateState(isDistracted, dt);
       }
+    }
+  }
+
+  processPhoneDetection(ts) {
+    if (!this.objectDetector || !this.videoEl || this.videoEl.readyState < 2)
+      return;
+
+    const result = this.objectDetector.detectForVideo(this.videoEl, ts);
+    if (!result || !result.detections) return;
+
+    const phoneFound = result.detections.some((d) =>
+      d.categories.some(
+        (c) => c.categoryName === "cell phone" && c.score >= 0.5,
+      ),
+    );
+
+    if (phoneFound && !this.phoneAlertActive) {
+      this.phoneAlertActive = true;
+      console.log("[Tracking] Phone detected! Alerting user.");
+
+      // Draw bounding box on canvas
+      for (const det of result.detections) {
+        const box = det.boundingBox;
+        const w = this.canvasEl.width;
+        const mirroredX = w - (box.originX + box.width);
+        this.ctx.strokeStyle = "#ff473e";
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(mirroredX, box.originY, box.width, box.height);
+        this.ctx.fillStyle = "rgba(255,71,62,0.15)";
+        this.ctx.fillRect(mirroredX, box.originY, box.width, box.height);
+        this.ctx.font = "bold 11px sans-serif";
+        this.ctx.fillStyle = "#ff473e";
+        this.ctx.fillText("📵 Phone", mirroredX + 4, box.originY + 14);
+      }
+
+      // Notify via background service worker
+      chrome.runtime.sendMessage({
+        type: "PV_NOTIFY",
+        payload: {
+          title: "📵 Phone Detected!",
+          message: "Put your phone down and refocus on your work.",
+        },
+      });
+
+      this.playAlertBeep();
+
+      // Persist phone alert state so popup can reflect it
+      chrome.storage.local.get(["pomoState"], (data) => {
+        if (data.pomoState) {
+          chrome.storage.local.set({
+            pomoState: { ...data.pomoState, phoneAlert: true },
+          });
+        }
+      });
+    } else if (!phoneFound && this.phoneAlertActive) {
+      this.phoneAlertActive = false;
+      document.body.style.backgroundColor = "#1a1a1a";
+
+      // Clear phone alert state
+      chrome.storage.local.get(["pomoState"], (data) => {
+        if (data.pomoState) {
+          chrome.storage.local.set({
+            pomoState: { ...data.pomoState, phoneAlert: false },
+          });
+        }
+      });
     }
   }
 
@@ -223,11 +316,17 @@ class PomoTracking {
 
     osc.type = "square";
     osc.frequency.setValueAtTime(440, this.audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(880, this.audioCtx.currentTime + 0.1);
+    osc.frequency.exponentialRampToValueAtTime(
+      880,
+      this.audioCtx.currentTime + 0.1,
+    );
 
     gain.gain.setValueAtTime(0, this.audioCtx.currentTime);
     gain.gain.linearRampToValueAtTime(0.1, this.audioCtx.currentTime + 0.05);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.3);
+    gain.gain.exponentialRampToValueAtTime(
+      0.001,
+      this.audioCtx.currentTime + 0.3,
+    );
 
     osc.connect(gain);
     gain.connect(this.audioCtx.destination);
