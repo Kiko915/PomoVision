@@ -123,10 +123,13 @@
   // Show / hide helpers
   // ─────────────────────────────────────────────
   function showGazeAlert() {
+    console.log("[PomoVision Content] showGazeAlert() called");
     injectStyles();
     const overlay = getOverlay();
     overlay.classList.remove("pv-phone");
     overlay.classList.add("pv-gaze");
+    overlay.style.display = ""; // Clear inline style to let CSS take over
+    console.log("[PomoVision Content] Red border applied, classes:", overlay.className);
   }
 
   function showPhoneAlert() {
@@ -134,9 +137,11 @@
     const overlay = getOverlay();
     overlay.classList.remove("pv-gaze");
     overlay.classList.add("pv-phone");
+    overlay.style.display = ""; // Clear inline style to let CSS take over
   }
 
   function hideAlert() {
+    console.log("[PomoVision Content] hideAlert() called");
     const overlay = document.getElementById(OVERLAY_ID);
     if (!overlay) return;
     overlay.classList.remove("pv-gaze", "pv-phone");
@@ -148,6 +153,8 @@
   // ─────────────────────────────────────────────
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!message || typeof message.type !== "string") return;
+
+    console.log("[PomoVision Content] Received message:", message.type);
 
     switch (message.type) {
       case "PV_REFOCUS_START":

@@ -124,27 +124,88 @@ chrome.runtime.onStartup.addListener(async () => {
  */
 async function sendToActiveTab(message) {
   try {
-    const [tab] = await chrome.tabs.query({
-      active: true,
-      currentWindow: true,
-    });
-    if (!tab?.id) return;
+    const tabs = await chrome.tabs.query({});
+    let successCount = 0;
+    let failCount = 0;
+    let injectedCount = 0;
+    
+    for (const tab of tabs) {
+      if (!tab?.id) continue;
 
-    // chrome:// and other restricted URLs don't support content scripts
-    const url = tab.url || "";
-    if (
-      url.startsWith("chrome://") ||
-      url.startsWith("chrome-extension://") ||
-      url.startsWith("about:") ||
-      url === ""
-    )
-      return;
+      // chrome:// and other restricted URLs don't support content scripts
+      const url = tab.url || "";
+      if (
+        url.startsWith("chrome://") ||
+        url.startsWith("chrome-extension://") ||
+        url.startsWith("about:") ||
+        url === ""
+      ) {
+        continue;
+      }
 
-    await chrome.tabs.sendMessage(tab.id, message, { frameId: 0 });
+      // Try to send message with retry logic
+      let sent = await sendMessageWithRetry(tab.id, message);
+      
+      // If message failed, try to inject content script and retry once
+      if (!sent) {
+        console.log(`[PomoVision] Message failed for tab ${tab.id}, attempting injection...`);
+        const injected = await injectContentScriptIfNeeded(tab.id, url);
+        if (injected) {
+          injectedCount++;
+          // Wait a bit for the script to initialize
+          await new Promise(resolve => setTimeout(resolve, 100));
+          sent = await sendMessageWithRetry(tab.id, message, 1);
+        }
+      }
+      
+      if (sent) {
+        successCount++;
+      } else {
+        failCount++;
+      }
+    }
+    
+    console.log(`[PomoVision] Sent ${message.type} to ${successCount} tabs, ${failCount} failed${injectedCount > 0 ? `, ${injectedCount} injected` : ''}`);
   } catch (err) {
-    // Content script not yet injected or tab is restricted — ignore
     console.warn("[PomoVision] sendToActiveTab failed:", err.message);
   }
+}
+
+async function injectContentScriptIfNeeded(tabId, url) {
+  // Only inject into http/https pages
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    return false;
+  }
+  
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId, allFrames: false },
+      files: ["content.js"]
+    });
+    console.log(`[PomoVision] Injected content script into tab ${tabId}`);
+    return true;
+  } catch (err) {
+    console.warn(`[PomoVision] Failed to inject content script into tab ${tabId}:`, err.message);
+    return false;
+  }
+}
+
+async function sendMessageWithRetry(tabId, message, maxRetries = 2) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      await chrome.tabs.sendMessage(tabId, message, { frameId: 0 });
+      return true;
+    } catch (err) {
+      // If it's the last attempt, log the failure
+      if (attempt === maxRetries) {
+        console.warn(`[PomoVision] Failed to send to tab ${tabId} after ${maxRetries + 1} attempts:`, err.message);
+        return false;
+      }
+      // Wait a bit before retrying (50ms, then 100ms)
+      await new Promise(resolve => setTimeout(resolve, 50 * (attempt + 1)));
+    }
+  }
+  return false;
 }
 
 /**
@@ -176,6 +237,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       message.type === "PV_PHONE_START" ||
       message.type === "PV_PHONE_STOP"
     ) {
+      console.log(`[PomoVision Background] Received ${message.type}, relaying to all tabs`);
       sendToActiveTab({ type: message.type });
       sendResponse?.({ ok: true });
       return false;

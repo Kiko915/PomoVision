@@ -12,7 +12,7 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["storage", "notifications", "offscreen", "tabs"],
+  "permissions": ["storage", "notifications", "offscreen", "tabs", "scripting"],
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
