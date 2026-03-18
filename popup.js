@@ -1,4 +1,11 @@
 /**
+ * TODO for tomorrow:
+ * 1. Upgrade the MediaPipe face tracking
+ * 2. Make sure stats are being tracked and saved
+ * 3. Add a visual like Red border that is beating on the current webpage for refocus mode
+ * 4. Add customizable settings for MVP
+ * 5. Fix Logo/Icon size
+ *
  * PomoVision - popup.js
  * Core logic:
  * - 25:00 Pomodoro timer (start/pause/reset)
@@ -83,7 +90,7 @@ class PomoVision {
     await this.loadState();
 
     this.renderTimer();
-    this.updateProgressBar();
+    this.updateProgressBar(true);
     await this.loadAndRenderStats();
 
     // Sync stats directly from tracking script via storage
@@ -333,7 +340,7 @@ class PomoVision {
     this.timerDisplayEl.textContent = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   }
 
-  updateProgressBar() {
+  updateProgressBar(instant = false) {
     if (!this.progressRingEl) return;
     const elapsed = this.SESSION_DURATION_SECONDS - this.remainingSeconds;
     const progress = Math.max(
@@ -343,7 +350,17 @@ class PomoVision {
     // 2 * pi * r (where r=70)
     const circumference = 439.8;
     const offset = circumference - progress * circumference;
-    this.progressRingEl.style.strokeDashoffset = offset;
+
+    if (instant) {
+      // Snap to position without CSS transition so restored state doesn't re-animate
+      this.progressRingEl.style.transition = "none";
+      this.progressRingEl.style.strokeDashoffset = offset;
+      // Force reflow so the browser registers the snap before re-enabling the transition
+      void this.progressRingEl.getBoundingClientRect();
+      this.progressRingEl.style.transition = "";
+    } else {
+      this.progressRingEl.style.strokeDashoffset = offset;
+    }
   }
 
   // -------------------------------
