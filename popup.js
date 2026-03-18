@@ -55,6 +55,21 @@ function sendNotification(title, message) {
 }
 
 // ─────────────────────────────────────────────
+// Tab Alert Helper
+// ─────────────────────────────────────────────
+
+/**
+ * Send an alert message to the currently active tab via the background
+ * service worker, which relays it to the content script.
+ * @param {"PV_REFOCUS_START"|"PV_REFOCUS_STOP"|"PV_PHONE_START"|"PV_PHONE_STOP"} type
+ */
+function sendTabAlert(type) {
+  chrome.runtime.sendMessage({ type }).catch(() => {
+    // Background SW may be sleeping — fire-and-forget is fine here
+  });
+}
+
+// ─────────────────────────────────────────────
 // Bootstrap
 // ─────────────────────────────────────────────
 
@@ -133,7 +148,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Sync vision so it stops counting focus frames
         vision.isRunning = false;
         gazeAlertActive = false;
+        phoneAlertActive = false;
         hideAlertOverlay();
+        sendTabAlert("PV_REFOCUS_STOP");
+        sendTabAlert("PV_PHONE_STOP");
 
         try {
           await stats.persist(
@@ -179,6 +197,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (gazeAlertActive) {
           gazeAlertActive = false;
           hideAlertOverlay();
+          sendTabAlert("PV_REFOCUS_STOP");
         }
       },
 
@@ -191,6 +210,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           sendNotification("REFOCUS!", "Eyes off-screen for over 5 seconds.");
           audio.playBeepPattern("alert");
           setSessionMessage("Distraction detected — refocus now.");
+          sendTabAlert("PV_REFOCUS_START");
         }
       },
 
@@ -203,11 +223,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         );
         audio.playBeepPattern("alert");
         setSessionMessage("📵 Phone detected — put it down!");
+        sendTabAlert("PV_PHONE_START");
       },
 
       onPhoneGone: () => {
         phoneAlertActive = false;
         hideAlertOverlay();
+        sendTabAlert("PV_PHONE_STOP");
         setSessionMessage(
           timer.isRunning ? "Focus session running..." : "Ready to start.",
         );
@@ -236,6 +258,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     gazeAlertActive = false;
     phoneAlertActive = false;
     hideAlertOverlay();
+    sendTabAlert("PV_REFOCUS_STOP");
+    sendTabAlert("PV_PHONE_STOP");
     timer.reset();
     syncVisionRunning();
   });

@@ -12,7 +12,15 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["storage", "notifications", "offscreen"],
+  "permissions": ["storage", "notifications", "offscreen", "tabs"],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
   "host_permissions": ["<all_urls>"],
   "icons": {
     "16": "icons/icon16.png",

@@ -118,12 +118,43 @@ chrome.runtime.onStartup.addListener(async () => {
 });
 
 /**
+ * Send a message to the currently active tab (top frame only).
+ * Fails silently if the tab cannot receive content-script messages
+ * (e.g. chrome://, new-tab page, PDF viewer).
+ */
+async function sendToActiveTab(message) {
+  try {
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    if (!tab?.id) return;
+
+    // chrome:// and other restricted URLs don't support content scripts
+    const url = tab.url || "";
+    if (
+      url.startsWith("chrome://") ||
+      url.startsWith("chrome-extension://") ||
+      url.startsWith("about:") ||
+      url === ""
+    )
+      return;
+
+    await chrome.tabs.sendMessage(tab.id, message, { frameId: 0 });
+  } catch (err) {
+    // Content script not yet injected or tab is restricted — ignore
+    console.warn("[PomoVision] sendToActiveTab failed:", err.message);
+  }
+}
+
+/**
  * Message relay endpoint.
- * Expected message shape:
- * {
- *   type: "PV_NOTIFY",
- *   payload: { title: string, message: string }
- * }
+ * Expected message shapes:
+ * { type: "PV_NOTIFY",        payload: { title, message } }
+ * { type: "PV_REFOCUS_START" }
+ * { type: "PV_REFOCUS_STOP"  }
+ * { type: "PV_PHONE_START"   }
+ * { type: "PV_PHONE_STOP"    }
  */
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   try {
@@ -134,6 +165,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     if (message.type === "PV_NOTIFY") {
       createNotification(message.payload);
+      sendResponse?.({ ok: true });
+      return false;
+    }
+
+    // Tab border alerts — relay to the active tab's content script
+    if (
+      message.type === "PV_REFOCUS_START" ||
+      message.type === "PV_REFOCUS_STOP" ||
+      message.type === "PV_PHONE_START" ||
+      message.type === "PV_PHONE_STOP"
+    ) {
+      sendToActiveTab({ type: message.type });
       sendResponse?.({ ok: true });
       return false;
     }

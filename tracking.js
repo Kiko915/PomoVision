@@ -219,6 +219,9 @@ class PomoTracking {
         },
       });
 
+      // Pulse the active tab's border orange
+      chrome.runtime.sendMessage({ type: "PV_PHONE_START" });
+
       this.playAlertBeep();
 
       // Persist phone alert state so popup can reflect it
@@ -232,6 +235,9 @@ class PomoTracking {
     } else if (!phoneFound && this.phoneAlertActive) {
       this.phoneAlertActive = false;
       document.body.style.backgroundColor = "#1a1a1a";
+
+      // Remove the tab border
+      chrome.runtime.sendMessage({ type: "PV_PHONE_STOP" });
 
       // Clear phone alert state
       chrome.storage.local.get(["pomoState"], (data) => {
@@ -300,6 +306,9 @@ class PomoTracking {
       },
     });
 
+    // Pulse the active tab's border red
+    chrome.runtime.sendMessage({ type: "PV_REFOCUS_START" });
+
     this.playAlertBeep();
   }
 
@@ -307,6 +316,9 @@ class PomoTracking {
     if (!this.alertActive) return;
     this.alertActive = false;
     document.body.style.backgroundColor = "#1a1a1a";
+
+    // Remove the tab border
+    chrome.runtime.sendMessage({ type: "PV_REFOCUS_STOP" });
   }
 
   async playAlertBeep() {
