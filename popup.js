@@ -403,6 +403,18 @@ class PomoVision {
     this.videoEl.srcObject = this.mediaStream;
     await this.videoEl.play();
 
+    // Sync canvas drawing buffer to the actual rendered video size
+    // so landmark coordinates map pixel-perfectly to what is displayed
+    await new Promise((resolve) => {
+      if (this.videoEl.videoWidth > 0) {
+        resolve();
+        return;
+      }
+      this.videoEl.addEventListener("loadedmetadata", resolve, { once: true });
+    });
+    this.canvasEl.width = this.videoEl.videoWidth || 320;
+    this.canvasEl.height = this.videoEl.videoHeight || 240;
+
     if (this.cameraPlaceholderEl) {
       this.cameraPlaceholderEl.style.display = "none";
     }
@@ -442,19 +454,24 @@ class PomoVision {
 
   startVisionLoop() {
     const tick = (ts) => {
+      // Face detection — isolated so errors never stop the loop
       try {
-        // ~30fps face inference throttle
         if (ts - this.lastInferenceTime >= this.INFERENCE_INTERVAL_MS) {
           this.lastInferenceTime = ts;
           this.processFrame();
         }
-        // ~1fps phone detection throttle
-        if (ts - this.lastPhoneCheckTime >= this.PHONE_CHECK_INTERVAL_MS) {
-          this.lastPhoneCheckTime = ts;
-          this.processPhoneDetection(ts);
-        }
       } catch (err) {
         console.error("[PomoVision] processFrame error:", err);
+      }
+
+      // Phone detection — completely isolated from face detection
+      try {
+        if (ts - this.lastPhoneCheckTime >= this.PHONE_CHECK_INTERVAL_MS) {
+          this.lastPhoneCheckTime = ts;
+          this.processPhoneDetection(performance.now());
+        }
+      } catch (err) {
+        console.error("[PomoVision] processPhoneDetection error:", err);
       }
 
       this.animationFrameId = window.requestAnimationFrame(tick);
@@ -573,7 +590,11 @@ class PomoVision {
   }
 
   processPhoneDetection(ts) {
-    if (!this.objectDetector || !this.videoEl || this.videoEl.readyState < 2)
+    if (
+      !this.objectDetector ||
+      !this.videoEl ||
+      this.videoEl.readyState < 4 // HAVE_ENOUGH_DATA — ensures frames are actually available
+    )
       return;
 
     const result = this.objectDetector.detectForVideo(this.videoEl, ts);
