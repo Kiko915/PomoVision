@@ -72,7 +72,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const trackingStatusEl = el("trackingStatus");
   const gazeStatusEl = el("gazeStatus");
   const focusPercentEl = el("focusPercent");
-  const sessionCountEl = el("sessionCount");
+  const pomodoroDotsEl = el("pomodoroDots");
   const sessionMessageEl = el("sessionMessage");
 
   // ── Shared alert flags ───────────────────────
@@ -113,7 +113,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ── Managers ─────────────────────────────────
   const audio = new AudioManager();
 
-  const stats = new StatsManager({ focusPercentEl, sessionCountEl });
+  const stats = new StatsManager({
+    focusPercentEl,
+    pomodoroDotsEl,
+    maxDots: 8,
+  });
 
   const timer = new TimerManager(
     { sessionDurationSeconds: 25 * 60 },

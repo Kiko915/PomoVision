@@ -352,3 +352,32 @@ body {
     text-align: center;
     padding-top: 8px;
 }
+
+/* Pomodoro Dots */
+.pomodoro-dots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+    align-items: center;
+    justify-content: center;
+}
+
+.pomo-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #e0ddd8;
+    border: 1.5px solid #ccc9c3;
+    display: inline-block;
+    transition:
+        background-color 0.3s ease,
+        border-color 0.3s ease,
+        box-shadow 0.3s ease;
+}
+
+.pomo-dot.completed {
+    background-color: var(--accent);
+    border-color: var(--accent-hover);
+    box-shadow: 0 0 4px rgba(255, 71, 62, 0.4);
+}
