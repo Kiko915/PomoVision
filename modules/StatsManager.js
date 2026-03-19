@@ -105,8 +105,8 @@ export class StatsManager {
   // ─────────────────────────────────────────────
 
   /**
-   * Fill in completed-pomodoro dots.
-   * The display wraps every `maxDots` sessions so the dots always show
+   * Fill in completed-pomodoro stars.
+   * The display wraps every `maxDots` sessions so the stars always show
    * progress within the current 8-pomodoro cycle.
    *
    * @param {number} totalSessions - All-time completed session count.
@@ -114,16 +114,16 @@ export class StatsManager {
   _renderDots(totalSessions) {
     if (!this.pomodoroDotsEl) return;
 
-    const dots = this.pomodoroDotsEl.querySelectorAll(".pomo-dot");
-    if (!dots.length) return;
+    const stars = this.pomodoroDotsEl.querySelectorAll(".pomo-star");
+    if (!stars.length) return;
 
     // How many sessions into the current cycle (0–maxDots)
     const completedInCycle = totalSessions % this.maxDots;
 
-    dots.forEach((dot, index) => {
+    stars.forEach((star, index) => {
       const isCompleted = index < completedInCycle;
-      dot.classList.toggle("completed", isCompleted);
-      dot.title = isCompleted
+      star.classList.toggle("completed", isCompleted);
+      star.title = isCompleted
         ? `Pomodoro ${index + 1} complete`
         : `Pomodoro ${index + 1}`;
     });

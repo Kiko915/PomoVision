@@ -354,30 +354,33 @@ body {
 }
 
 /* Pomodoro Dots */
-.pomodoro-dots {
+.pomodoro-stars {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+    flex-direction: column;
+    gap: 4px;
     margin-top: 4px;
     align-items: center;
+}
+
+.star-row {
+    display: flex;
+    gap: 8px;
     justify-content: center;
 }
 
-.pomo-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background-color: #e0ddd8;
-    border: 1.5px solid #ccc9c3;
-    display: inline-block;
+.pomo-star {
+    font-size: 20px;
+    color: #e0ddd8;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
     transition:
-        background-color 0.3s ease,
-        border-color 0.3s ease,
-        box-shadow 0.3s ease;
+        color 0.3s ease,
+        text-shadow 0.3s ease,
+        transform 0.2s ease;
+    cursor: default;
+    user-select: none;
 }
 
-.pomo-dot.completed {
-    background-color: var(--accent);
-    border-color: var(--accent-hover);
-    box-shadow: 0 0 4px rgba(255, 71, 62, 0.4);
+.pomo-star.completed {
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(255, 71, 62, 0.5);
 }
